@@ -1,0 +1,60 @@
+IF OBJECT_ID('LacznaSprzedazProduktow', 'V') IS NOT NULL
+DROP VIEW LacznaSprzedazProduktow
+GO
+CREATE VIEW LacznaSprzedazProduktow AS (
+	SELECT P.Kod, MAX(P.Cena) AS CenaJednostkowa, SUM(Z.Ilosc) AS Sprzedano FROM Produkty P
+	JOIN Zamowienia Z ON P.Kod = Z.KodProduktu
+	GROUP BY P.Kod
+)
+GO
+IF OBJECT_ID('ZuzycieKomponentow', 'V') IS NOT NULL
+DROP VIEW ZuzycieKomponentow
+GO
+CREATE VIEW ZuzycieKomponentow AS (
+	SELECT K.Kod, SUM(Z.Ilosc) * MAX(LM.IloscKomponentow) AS Zuzycie, SUM(Z.Ilosc) * MAX(LM.IloscKomponentow) * MAX(K.Cena) AS Koszt FROM Komponenty K
+	JOIN ListyMaterialowe LM ON K.Kod = LM.KodKomponentu
+	JOIN Zamowienia Z ON Z.KodProduktu = LM.KodProduktu
+	GROUP BY K.Kod
+)
+GO
+IF OBJECT_ID('KosztKomponentowWSzafie', 'V') IS NOT NULL
+DROP VIEW KosztKomponentowWSzafie
+GO
+CREATE VIEW KosztKomponentowWSzafie AS (
+	SELECT P.Kod, MAX(P.Cena) AS CenaProduktu, SUM(LM.IloscKomponentow * K.Cena) AS CenaKomponentow FROM Produkty P
+	JOIN ListyMaterialowe LM ON P.Kod = LM.KodProduktu
+	JOIN Komponenty K ON LM.KodKomponentu = K.Kod
+	GROUP BY P.Kod
+)
+GO
+IF OBJECT_ID('PrzegladZamowien', 'P') IS NOT NULL
+DROP PROCEDURE PrzegladZamowien
+GO
+CREATE PROCEDURE PrzegladZamowien (@DataOd DATE) AS (
+	SELECT * FROM Zamowienia
+	WHERE Data >= @DataOd
+)
+GO
+IF OBJECT_ID('ZapotrzebowanieKomponentow', 'P') IS NOT NULL
+DROP PROCEDURE ZapotrzebowanieKomponentow
+GO
+CREATE PROCEDURE ZapotrzebowanieKomponentow (@kodProduktu VARCHAR(50), @iloscDoWykonania INT) AS (
+	SELECT P.Kod, LM.KodKomponentu, LM.IloscKomponentow * @iloscDoWykonania AS £¹cznaIloœæ, K.Cena * LM.IloscKomponentow * @iloscDoWykonania AS £¹cznaCena FROM Produkty P
+	JOIN ListyMaterialowe LM ON P.Kod = LM.KodProduktu
+	JOIN Komponenty K ON LM.KodKomponentu = K.Kod
+	WHERE P.Kod = @kodProduktu
+)
+GO
+
+
+-- Wyœwetlenie raportów
+
+SELECT * FROM LacznaSprzedazProduktow
+
+SELECT * FROM ZuzycieKomponentow
+
+SELECT * FROM KosztKomponentowWSzafie
+
+EXEC PrzegladZamowien '2017-09-20'
+
+EXEC ZapotrzebowanieKomponentow 'SC2032F OP2', 10
